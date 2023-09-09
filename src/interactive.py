@@ -242,6 +242,10 @@ class InteractivePipeline(PipelineControlPanel):
         self.pipe = self.pipe.to(device)
         print(f"Device: {self.pipe.device}")
 
+        if torch.cuda.is_available() and torch.__version__ < "2.0":
+            print("Enabled: Xformers memory efficient attention")
+            self.pipe.enable_xformers_memory_efficient_attention()
+
         # Add extra choices to self.wid_scheduler
         self.w_scheduler.options = self.pipe.scheduler.compatibles
         # Set the current scheduler to the default
@@ -274,7 +278,7 @@ class InteractivePipeline(PipelineControlPanel):
         _generator = None
         if seed is not None and seed != -1:
             print(f"Seed: {seed}")
-            _generator = torch.Generator(self.pipe.device).manual_seed(seed)
+            _generator = torch.Generator().manual_seed(seed)
 
         # Parameters passed to the pipeline's __call__ method
         pipe_call_params = {
