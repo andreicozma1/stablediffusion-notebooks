@@ -15,7 +15,7 @@ from matplotlib.animation import FuncAnimation
 
 import math
 
-import PIL
+from PIL import Image
 import torch
 from typeguard import typechecked
 
@@ -34,7 +34,7 @@ class ModelsTxt2Img(str, Enum):
 
 @typechecked
 def plot(
-    imgs: Union[PIL.Image.Image, List[PIL.Image.Image]],
+    imgs: Union[Image.Image, List[Image.Image]],
     captions: Optional[Union[str, List[str]]] = None,
     n_rows: Optional[int] = None,
     fname: Optional[str] = None,
@@ -43,19 +43,23 @@ def plot(
     Plots an image or a list of images.
     If a list of images is provided, they are plotted in a grid.
     """
-    if isinstance(imgs, PIL.Image.Image):
+    if isinstance(imgs, Image.Image):
         imgs = [imgs]
+
+    n_imgs = len(imgs)
+    assert n_imgs > 0, "No images to plot."
+
     if captions is None:
         captions = [f"Image {i + 1}" for i in range(len(imgs))]
     if isinstance(captions, str):
         captions = [captions]
 
-    batch_size = len(imgs)
-    assert batch_size > 0, "No images to plot."
-    assert batch_size == len(captions), "Number of images and captions must match."
+    assert n_imgs == len(
+        captions
+    ), f"Number of images and captions must match. Got {n_imgs} images and {len(captions)} captions."
 
-    rows = n_rows or int(math.sqrt(batch_size))
-    cols = int(math.ceil(batch_size / rows))
+    rows = n_rows or int(math.sqrt(n_imgs))
+    cols = int(math.ceil(n_imgs / rows))
     fig = plt.figure(figsize=(cols * 4, rows * 4))
 
     for i, img in enumerate(imgs):
@@ -64,16 +68,16 @@ def plot(
 
         ibands, iextrema = img.getbands(), img.getextrema()
         if len(ibands) == 1:
-            ax.imshow(img, cmap="gray", interpolation=None)
+            ax.imshow(img, cmap="gray", interpolation="none")
         else:
-            ax.imshow(img, interpolation=None)
+            ax.imshow(img, interpolation="none")
 
         ax.axis("off")
 
     fig.tight_layout()
 
     if fname:
-        plt.savefig(f"{fname}.png" if not fname.endswith(".png") else fname)
+        plt.savefig(fname if fname.endswith(".png") else f"{fname}.png")
 
     plt.show()
     plt.close()
@@ -81,8 +85,9 @@ def plot(
 
 @typechecked
 def plot_anim(
-    frames: List[Union[PIL.Image.Image, List[PIL.Image.Image]]],
-    frame_captions: Optional[Union[str, List[str]]] = None,
+    frames: List[Union[Image.Image, List[Image.Image]]],
+    frame_titles: Optional[Union[str, List[str]]] = None,
+    captions: Optional[Union[str, List[str]]] = None,
     n_rows: Optional[int] = None,
     interval: int = 500,
     dpi: int = 75,
@@ -93,74 +98,86 @@ def plot_anim(
     Plots an animation from a list of frames containing images.
     Each index of `frame_imgs` and `frame_captions` corresponds to a frame/timestep.
     """
-    num_frames = len(frames)
-    assert num_frames > 0, "No frames to plot."
-    print(f"Number of frames: {num_frames}")
+    n_frames = len(frames)
+    assert n_frames > 0, "No frames to plot."
+    print(f"Number of frames: {n_frames}")
 
-    if isinstance(frames[0], PIL.Image.Image):
+    if isinstance(frames[0], Image.Image):
         frames = [[frame] for frame in frames]
 
-    num_images_per_frame = len(frames[0])
-    print(f"Number of images per frame: {num_images_per_frame}")
+    if frame_titles is None:
+        frame_titles = [f"Step {i + 1}" for i in range(n_frames)]
 
-    if frame_captions is None:
-        frame_captions = [f"Step {i + 1}" for i in range(num_frames)]
+    if isinstance(frame_titles, str):
+        frame_titles = [frame_titles]
 
-    if isinstance(frame_captions, str):
-        frame_captions = [frame_captions]
+    assert n_frames == len(
+        frame_titles
+    ), f"Number of frames and frame titles must match. Got {n_frames} frames and {len(frame_titles)} frame titles."
 
-    assert num_frames == len(
-        frame_captions
-    ), "Number of frames and frame captions must match."
+    if captions is None:
+        captions = [f"Image {i + 1}" for i in range(len(frames[0]))]
+    if isinstance(captions, str):
+        captions = [captions]
 
-    rows = n_rows or int(math.sqrt(num_images_per_frame))
-    cols = int(math.ceil(num_images_per_frame / rows))
+    n_imgs_per_frame = len(frames[0])
+    print(f"Number of images per frame: {n_imgs_per_frame}")
 
-    # fig, axs = plt.subplots(
-    #     rows, cols, figsize=(cols * 4, rows * 4), constrained_layout=True, dpi=50
-    # )
+    assert n_imgs_per_frame == len(
+        captions
+    ), f"Number of images per frame and captions must match. Got {n_imgs_per_frame} images per frame and {len(captions)} captions."
+
+    rows = n_rows or int(math.sqrt(n_imgs_per_frame))
+    cols = int(math.ceil(n_imgs_per_frame / rows))
+
     fig = plt.figure(figsize=(cols * 4, rows * 4), constrained_layout=True, dpi=dpi)
     axs = []
-    for i in range(num_images_per_frame):
+    for i in range(n_imgs_per_frame):
         ax = fig.add_subplot(rows, cols, i + 1)
         ax.axis("off")
         axs.append(ax)
 
     def update(step):
-        fig.suptitle(frame_captions[step], fontsize=12)
-
+        fig.suptitle(frame_titles[step], fontsize=12)
         for i, ax in enumerate(axs):
-            frame = frames[step][i]
-            ibands, iextrema = frame.getbands(), frame.getextrema()
-            if len(ibands) == 1:
-                ax.imshow(frame, cmap="gray", interpolation=None)
-            else:
-                ax.imshow(frame, interpolation=None)
-            ax.set_title(f"Image {i + 1} ({str(iextrema)})")
+            img = frames[step][i]
+            ax.set_title(captions[i])
 
-    anim = FuncAnimation(fig, update, frames=num_frames, interval=interval)
+            ibands, iextrema = img.getbands(), img.getextrema()
+            if len(ibands) == 1:
+                ax.imshow(img, cmap="gray", interpolation="none")
+            else:
+                ax.imshow(img, interpolation="none")
+
+    anim = FuncAnimation(fig, update, frames=n_frames, interval=interval)
     anim_html = anim.to_jshtml(default_mode="once", embed_frames=True)
     embed_size_em = 50 * embed_scale
     anim_html = anim_html.replace("<img", f'<img style="height: {embed_size_em}em;"')
 
     if fname:
+        # Save as HTML
         with open(f"{fname}.html" if not fname.endswith(".html") else fname, "w") as f:
             f.write(anim_html)
+        # Save as GIF
+        anim.save(
+            f"{fname}.gif" if not fname.endswith(".gif") else fname,
+            writer="imagemagick",
+        )
 
     display(HTML(anim_html))
     plt.close()
 
 
 @typechecked
-def __rescale(img: PIL.Image.Image, rescale_factor: float):
+def __rescale(img: Image.Image, rescale_factor: float):
     w, h = img.width, img.height
     nw, nh = int(rescale_factor * w), int(rescale_factor * h)
-    img = img.resize((nw, nh), PIL.Image.LANCZOS)
+    img = img.resize((nw, nh), Image.LANCZOS)
     return img
 
 
 @typechecked
-def rescale(imgs: Union[PIL.Image.Image, List[PIL.Image.Image]], rescale_factor: float):
+def rescale(imgs: Union[Image.Image, List[Image.Image]], rescale_factor: float):
     single_img = False
     if not isinstance(imgs, list):
         imgs, single_img = [imgs], True
@@ -172,16 +189,16 @@ def rescale(imgs: Union[PIL.Image.Image, List[PIL.Image.Image]], rescale_factor:
 
 
 @typechecked
-def __resize(img: PIL.Image.Image, size: int):
+def __resize(img: Image.Image, size: int):
     w, h = img.width, img.height
     # preserving aspect ratio
     nw, nh = (size, int(size * h / w)) if w > h else (int(size * w / h), size)
-    img = img.resize((nw, nh), PIL.Image.LANCZOS)
+    img = img.resize((nw, nh), Image.LANCZOS)
     return img
 
 
 @typechecked
-def resize(imgs: Union[PIL.Image.Image, List[PIL.Image.Image]], size: int):
+def resize(imgs: Union[Image.Image, List[Image.Image]], size: int):
     single_img = False
     if not isinstance(imgs, list):
         imgs, single_img = [imgs], True
@@ -195,7 +212,7 @@ def resize(imgs: Union[PIL.Image.Image, List[PIL.Image.Image]], size: int):
 @typechecked
 def __load(url: str, size: int = 512):
     response = requests.get(url)
-    init_image = PIL.Image.open(BytesIO(response.content)).convert("RGB")
+    init_image = Image.open(BytesIO(response.content)).convert("RGB")
     init_image = __resize(init_image, size)
     return init_image
 

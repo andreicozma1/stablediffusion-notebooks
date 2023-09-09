@@ -1,4 +1,5 @@
 accelerate==0.22.0
+antlr4-python3-runtime==4.9.3
 asttokens==2.4.0
 autoflake==2.2.1
 backcall==0.2.0
@@ -51,6 +52,7 @@ nvidia-cusolver-cu11==11.4.0.1
 nvidia-cusparse-cu11==11.7.4.91
 nvidia-nccl-cu11==2.14.3
 nvidia-nvtx-cu11==11.7.91
+omegaconf==2.3.0
 packaging==23.1
 parso==0.8.3
 pathspec==0.11.2
