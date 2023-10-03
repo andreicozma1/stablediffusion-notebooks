@@ -4,16 +4,14 @@ Author: Andrei Cozma
 """
 
 import time
-
-import ipywidgets as widgets
-from IPython.display import display, clear_output
-
-import torch
-import diffusers
 from pprint import pprint
 
-from . import helpers
+import diffusers
+import ipywidgets as widgets
+import torch
+from IPython.display import clear_output, display
 
+from . import helpers
 
 wid_width = "95%"
 wid_description_width = "15%"
@@ -303,6 +301,6 @@ class InteractivePipeline(PipelineControlPanel):
         # In interactive mode display the controls again and plot the images
         if interactive:
             self.show()
-            helpers.plot(out.images, fname="plot_latest_generation")
+            helpers.plot(out.images, save_fname="plot_latest_generation")
 
         return (out.images, time_elapsed) if return_time_elapsed else out.images

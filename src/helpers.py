@@ -37,7 +37,8 @@ def plot(
     imgs: Union[Image.Image, List[Image.Image]],
     captions: Optional[Union[str, List[str]]] = None,
     n_rows: Optional[int] = None,
-    fname: Optional[str] = None,
+    save_dir: str = "plots",
+    save_fname: Optional[str] = None,
 ):
     """
     Plots an image or a list of images.
@@ -76,8 +77,11 @@ def plot(
 
     fig.tight_layout()
 
-    if fname:
-        plt.savefig(fname if fname.endswith(".png") else f"{fname}.png")
+    if save_fname:
+        save_fname = save_fname if save_fname.endswith(".png") else f"{save_fname}.png"
+        os.makedirs(save_dir, exist_ok=True)
+        save_fpath = os.path.join(save_dir, save_fname)
+        plt.savefig(save_fpath)
 
     plt.show()
     plt.close()
@@ -92,7 +96,8 @@ def plot_anim(
     interval: int = 500,
     dpi: int = 75,
     embed_scale: float = 1.0,
-    fname: Optional[str] = None,
+    save_dir: str = "plots",
+    save_fname: Optional[str] = None,
 ):
     """
     Plots an animation from a list of frames containing images.
@@ -154,15 +159,21 @@ def plot_anim(
     embed_size_em = 50 * embed_scale
     anim_html = anim_html.replace("<img", f'<img style="height: {embed_size_em}em;"')
 
-    if fname:
+    if save_fname:
+        save_fname_html = save_fname = (
+            save_fname if save_fname.endswith(".html") else f"{save_fname}.html"
+        )
+        save_fname_gif = save_fname = (
+            save_fname if save_fname.endswith(".gif") else f"{save_fname}.gif"
+        )
+        os.makedirs(save_dir, exist_ok=True)
+        save_path_html = os.path.join(save_dir, save_fname_html)
+        save_path_gif = os.path.join(save_dir, save_fname_gif)
         # Save as HTML
-        with open(f"{fname}.html" if not fname.endswith(".html") else fname, "w") as f:
+        with open(save_path_html, "w") as f:
             f.write(anim_html)
         # Save as GIF
-        anim.save(
-            f"{fname}.gif" if not fname.endswith(".gif") else fname,
-            writer="imagemagick",
-        )
+        anim.save(save_path_gif, writer="imagemagick")
 
     display(HTML(anim_html))
     plt.close()
