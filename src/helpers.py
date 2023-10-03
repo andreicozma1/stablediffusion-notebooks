@@ -3,20 +3,20 @@ Various helpers for the notebooks.
 Author: Andrei Cozma
 """
 
+import math
+import os
 from enum import Enum
 from io import BytesIO
 from typing import List, Optional, Union
-import requests
-from typeguard import typechecked
-from IPython.display import display, HTML
+
+import diffusers
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-
-import math
-
-from PIL import Image
+import requests
 import torch
+from IPython.display import HTML, display
+from matplotlib.animation import FuncAnimation
+from PIL import Image
 from typeguard import typechecked
 
 mpl.rcParams["animation.embed_limit"] = 50  # MB
@@ -169,7 +169,7 @@ def plot_anim(
 
 
 @typechecked
-def __rescale(img: Image.Image, rescale_factor: float):
+def __rescale_image(img: Image.Image, rescale_factor: float):
     w, h = img.width, img.height
     nw, nh = int(rescale_factor * w), int(rescale_factor * h)
     img = img.resize((nw, nh), Image.LANCZOS)
@@ -177,19 +177,19 @@ def __rescale(img: Image.Image, rescale_factor: float):
 
 
 @typechecked
-def rescale(imgs: Union[Image.Image, List[Image.Image]], rescale_factor: float):
+def rescale_image(imgs: Union[Image.Image, List[Image.Image]], rescale_factor: float):
     single_img = False
     if not isinstance(imgs, list):
         imgs, single_img = [imgs], True
 
     for i in range(len(imgs)):
-        imgs[i] = __rescale(imgs[i], rescale_factor)
+        imgs[i] = __rescale_image(imgs[i], rescale_factor)
 
     return imgs[0] if single_img else imgs
 
 
 @typechecked
-def __resize(img: Image.Image, size: int):
+def __resize_image(img: Image.Image, size: int):
     w, h = img.width, img.height
     # preserving aspect ratio
     nw, nh = (size, int(size * h / w)) if w > h else (int(size * w / h), size)
@@ -198,31 +198,47 @@ def __resize(img: Image.Image, size: int):
 
 
 @typechecked
-def resize(imgs: Union[Image.Image, List[Image.Image]], size: int):
+def resize_image(imgs: Union[Image.Image, List[Image.Image]], size: int = 512):
     single_img = False
     if not isinstance(imgs, list):
         imgs, single_img = [imgs], True
 
     for i in range(len(imgs)):
-        imgs[i] = __resize(imgs[i], size)
+        imgs[i] = __resize_image(imgs[i], size)
 
     return imgs[0] if single_img else imgs
 
 
 @typechecked
-def __load(url: str, size: int = 512):
-    response = requests.get(url)
-    init_image = Image.open(BytesIO(response.content)).convert("RGB")
-    init_image = __resize(init_image, size)
-    return init_image
-
-
-@typechecked
-def load(urls: Union[str, List[str]], size: int = 512):
+def load_image(urls: Union[str, List[str]], size: int = 512):
     single_url = False
     if not isinstance(urls, list):
         urls, single_url = [urls], True
 
-    imgs = [__load(url, size) for url in urls]
+    imgs = [diffusers.utils.load_image(url) for url in urls]
+    imgs = [resize_image(img, size) for img in imgs]
 
     return imgs[0] if single_url else imgs
+
+
+def save_tmp_outputs(
+    imgs: List[Image.Image],
+    basedir: str = "output_imgs",
+    subdir: Optional[str] = None,
+):
+    """
+    Saves a list of images to a temporary directory.
+    The directory is cleared every time the function is called.
+    """
+    savepath = os.path.join(basedir, subdir) if subdir else basedir
+    os.makedirs(savepath, exist_ok=True)
+    img_fname_template = "img_{:04d}.png"
+    # clear any old existing images
+    for fname in os.listdir(savepath):
+        if fname.startswith("img_") and fname.endswith(".png"):
+            fpath = os.path.join(savepath, fname)
+            os.remove(fpath)
+    # save the new images
+    for i, img in enumerate(imgs):
+        fpath = os.path.join(savepath, img_fname_template.format(i))
+        img.save(fpath)
